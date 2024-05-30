@@ -1,0 +1,69 @@
+volumes:
+  pg_data:
+  pg_data_local:
+
+services:
+  pg:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_PASSWORD: pg_password
+    command:
+      - -c
+      - wal_level=logical
+    ports:
+      - 5432:5432
+    restart: always
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready"]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+    user: postgres
+    hostname: pg
+
+  # pgloc:
+  #   image: postgres:14-alpine
+  #   environment:
+  #     POSTGRES_PASSWORD: pg_password
+  #   command:
+  #     - -c
+  #     - wal_level=logical
+  #   ports:
+  #     - 5433:5433
+  #   restart: always
+  #   volumes:
+  #     - pg_data_local:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD", "pg_isready"]
+  #     timeout: 5s
+  #     interval: 5s
+  #     retries: 3
+  #   user: postgres
+  #   hostname: pgloc
+
+  electric:
+    image: electricsql/electric
+    depends_on:
+      pg:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:pg_password@pg/postgres
+      DATABASE_REQUIRE_SSL: false
+      LOGICAL_PUBLISHER_HOST: electric
+      PG_PROXY_PASSWORD: proxy_password
+      AUTH_MODE: insecure
+    ports:
+      - 5133:5133   # satellite-http
+      - 5434:5434   # logical-pub-tcp
+      - 65432:65432 # pg-proxy-tcp
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:5133/api/status"]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+    hostname: electric
+
+
